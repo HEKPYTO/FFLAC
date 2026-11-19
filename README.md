@@ -74,7 +74,9 @@ decode real-time factors, and the verified flag.
 ## Limitations
 
 - Float32 only. No 64-bit float, Ogg/FLAC, or AIFF.
-- macOS arm64 and Linux x86_64 are supported. Windows is untested.
+- Linux x86_64 is the supported release target. macOS arm64 builds and
+  passes the same tests locally but is not a release target. Windows is
+  untested.
 - WavPack produces smaller files on several tiers; this project wins on FLAC
   ecosystem fit, encode speed, and peak preservation.
 - Integer delivery formats are out of scope. Use a separate converter after
