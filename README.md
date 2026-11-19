@@ -82,7 +82,9 @@ decode real-time factors, and the verified flag.
 
 ## Licence
 
-The `flac` and `metaflac` binaries are GPL-2.0-or-later; libFLAC is
-BSD-3-Clause. Distributing the binaries carries GPL source and notice
-obligations. The Python wrapper's licence is undecided, so no combined-work
-licence is asserted. No `LICENSE` file exists yet.
+The floatflac Python package is licensed under the Apache License, Version
+2.0; see `LICENSE`. The `flac` and `metaflac` binaries built by
+`scripts/build-codec.sh` are GPL-2.0-or-later, and libFLAC is BSD-3-Clause;
+see `NOTICE`. The build script fetches the pinned source, so this source
+release does not distribute those binaries. The wrapper and the binaries are
+separate works; no combined-work licence is asserted.

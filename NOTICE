@@ -1,0 +1,25 @@
+floatflac
+Copyright 2026 HEKPYTO
+
+The floatflac Python package is licensed under the Apache License,
+Version 2.0. See LICENSE.
+
+The flac and metaflac binaries built by scripts/build-codec.sh are
+GPL-2.0-or-later. They come from
+https://github.com/aliheidary1381/flac-with-float-coding
+branch float-sample-coding, commit
+05536fce4e43d06d5b71e75912007893ca0b8ca0.
+
+This source release does not distribute those binaries. The build script
+fetches the pinned source, so every build has the corresponding source at
+that commit. Anyone redistributing the binaries must meet the
+GPL-2.0-or-later source and notice obligations.
+
+libFLAC is BSD-3-Clause:
+Copyright (C) 2000-2009 Josh Coalson
+Copyright (C) 2011-2025 Xiph.Org Foundation
+https://xiph.org/flac/
+
+The Apache-2.0 wrapper and the GPL-2.0-or-later binaries are separate works
+combined only by the build and invocation steps. No single licence is
+asserted for the combined distribution.
