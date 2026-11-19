@@ -1,5 +1,4 @@
 import platform
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -69,7 +68,6 @@ def bench(directory, preset: int = 5) -> BenchReport:
             infos.append((path, read_wav_info(path), None))
         except FloatflacError as exc:
             reason = f"{exc.code}: {exc.message}"
-            warnings.warn(f"{path.name}: skipped ({reason})", UserWarning, stacklevel=2)
             infos.append((path, None, reason))
     if not any(info is not None for _path, info, _reason in infos):
         raise FloatflacError(

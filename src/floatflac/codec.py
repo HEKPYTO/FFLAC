@@ -142,6 +142,49 @@ def require_float_stream(
     return sample_type
 
 
+@dataclass(frozen=True)
+class StreamInfo:
+    sample_type: str
+    bps: int
+    sample_rate: float
+    channels: int
+    channel_mask: int
+
+
+def read_stream_info(codec, path, error_code="probe_failed") -> StreamInfo:
+    proc = run_codec(
+        [
+            codec.metaflac,
+            "--show-sample-type",
+            "--show-bps",
+            "--show-sample-rate",
+            "--show-channels",
+            "--show-channel-mask",
+            str(path),
+        ],
+        error_code,
+    )
+    fields = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+    if len(fields) < 5:
+        raise FloatflacError(
+            error_code,
+            "metaflac did not return five stream properties.",
+            "Check the FLAC file.",
+        )
+    try:
+        bps = int(fields[1])
+        rate = float(fields[2])
+        channels = int(fields[3])
+        mask = int(fields[4], 0)
+    except ValueError as exc:
+        raise FloatflacError(
+            error_code,
+            f"Unexpected metaflac value: {exc}".replace("\n", " "),
+            "Check the FLAC file.",
+        ) from exc
+    return StreamInfo(fields[0], bps, rate, channels, mask)
+
+
 def encode_file(
     codec: CodecPaths, src: Path, dst: Path, preset: int = 5, extra_args=()
 ):

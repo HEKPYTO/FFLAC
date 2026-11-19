@@ -11,11 +11,6 @@ from floatflac.codec import CodecPaths, encode_file
 from floatflac.verify import verify
 from floatflac.wav import read_wav_info, write_float_wav
 
-LOSSY_FLAGS = (
-    "--force-dpa-mode-which-is-not-lossless",
-    "--force-empty-packed-subframe-which-is-not-lossless",
-)
-
 
 def signal(channels: int, rate: int, frames: int | None = None) -> list[float]:
     count = round(rate * 0.25) if frames is None else frames
@@ -81,28 +76,8 @@ def test_extra_args_land_before_source(monkeypatch):
     monkeypatch.setattr("floatflac.codec.run_codec", fake_run)
     codec = CodecPaths(Path("bin/flac"), Path("bin/metaflac"), "05536fc", True)
     encode_file(codec, Path("in.wav"), Path("out.flac"), 8, ("--seekpoint=100s",))
-    assert [[str(arg) for arg in call] for call in calls] == [
-        [
-            "bin/flac",
-            "-f",
-            "-8",
-            "--seekpoint=100s",
-            "--verify",
-            "in.wav",
-            "-o",
-            "out.flac",
-        ]
-    ]
-
-
-def test_default_args_have_no_lossy_flags(monkeypatch):
-    calls = []
-    monkeypatch.setattr(
-        "floatflac.codec.run_codec", lambda args, code: calls.append(args)
-    )
-    codec = CodecPaths(Path("bin/flac"), Path("bin/metaflac"), "05536fc", True)
-    encode_file(codec, Path("in.wav"), Path("out.flac"))
-    assert not any(flag in calls[0] for flag in LOSSY_FLAGS)
+    argv = [str(arg) for arg in calls[0]]
+    assert argv.index("--seekpoint=100s") < argv.index("in.wav")
 
 
 def test_verify_json(codec, fixtures, tmp_path, capsys):

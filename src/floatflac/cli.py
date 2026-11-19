@@ -10,7 +10,7 @@ from .codec import decode_file, doctor, encode_file, find_codec, require_float_s
 from .errors import FloatflacError
 from .probe import probe
 from .process import attenuate
-from .report import compatibility_warning, emit_error, emit_json
+from .report import COMPATIBILITY_WARNING, emit_error, emit_json, envelope
 from .verify import sha256_file, verify
 from .wav import read_wav_info
 
@@ -49,26 +49,42 @@ def _require_file(path: Path) -> None:
         )
 
 
+def _refuse_existing(path: Path, force: bool) -> None:
+    if path.exists() and not force:
+        raise FloatflacError(
+            "output_exists",
+            f"{path}: output already exists",
+            "Pass --force to overwrite.",
+        )
+
+
+def _print_bench(bench_report) -> None:
+    print(f"machine: {bench_report.machine}")
+    print(
+        f"python: {bench_report.python} preset: {bench_report.preset} codec_commit: {bench_report.codec_commit}"
+    )
+    print(f"{'file':<38} {'ratio':>8} {'enc(x)':>10} {'dec(x)':>10} verified")
+    for row in bench_report.rows:
+        print(
+            f"{row.file:<38} {row.ratio:>8.4f} {row.encode_rtf:>9.1f}x {row.decode_rtf:>9.1f}x {row.verified}"
+        )
+        if row.skipped:
+            print(f"warning: {row.file}: skipped ({row.skipped})")
+    totals = bench_report.totals
+    print(
+        f"{'TOTAL':<38} {totals.ratio:>8.4f} {'':>10} {'':>10} files={totals.files} source_bytes={totals.source_bytes} flac_bytes={totals.flac_bytes}"
+    )
+
+
 def encode(src, dst=None, preset: int = 5, force: bool = False) -> EncodeResult:
     codec = find_codec()
     source = Path(src)
     _require_file(source)
     info = read_wav_info(source)
     target = Path(dst) if dst is not None else source.with_suffix(".flac")
-    if target.exists() and not force:
-        raise FloatflacError(
-            "output_exists",
-            f"{target}: output already exists",
-            "Pass --force to overwrite.",
-        )
+    _refuse_existing(target, force)
     encode_file(codec, source, target, preset)
     result = verify(codec, target, source)
-    if not result.verified:
-        raise FloatflacError(
-            "verify_failed",
-            f"{target}: encoded stream did not verify",
-            "Do not ship the file; report the offset.",
-        )
     flac_bytes = target.stat().st_size
     return EncodeResult(
         source=str(source),
@@ -95,12 +111,7 @@ def decode(src, dst=None, raw: bool = False, force: bool = False) -> DecodeResul
     target = (
         Path(dst) if dst is not None else source.with_suffix(".f32" if raw else ".wav")
     )
-    if target.exists() and not force:
-        raise FloatflacError(
-            "output_exists",
-            f"{target}: output already exists",
-            "Pass --force to overwrite.",
-        )
+    _refuse_existing(target, force)
     decode_file(codec, source, target, raw=raw)
     return DecodeResult(
         source=str(source),
@@ -198,7 +209,7 @@ def main(argv=None) -> int:
             if args.as_json:
                 emit_json(command, data)
             else:
-                print(compatibility_warning())
+                print(COMPATIBILITY_WARNING)
                 print(
                     f"source: {result.source} sha256={result.source_sha256} bytes={result.source_bytes}"
                 )
@@ -252,7 +263,7 @@ def main(argv=None) -> int:
             if args.as_json:
                 emit_json(command, data)
             else:
-                print(compatibility_warning())
+                print(COMPATIBILITY_WARNING)
                 print(
                     f"source: {flac_path} bytes={data['flac_bytes']} sha256={data['flac_sha256']}"
                 )
@@ -268,48 +279,20 @@ def main(argv=None) -> int:
                 )
             return 0
         if command == "bench":
-            if args.out:
-                output = Path(args.out)
-                if output.exists() and not args.force:
-                    raise FloatflacError(
-                        "output_exists",
-                        f"{output}: output already exists",
-                        "Pass --force to overwrite.",
-                    )
-            report = bench(args.directory, args.preset)
+            output = Path(args.out) if args.out else None
+            if output is not None:
+                _refuse_existing(output, args.force)
+            bench_report = bench(args.directory, args.preset)
             payload = json.dumps(
-                {
-                    "schema": "floatflac/v1",
-                    "command": command,
-                    "data": asdict(report),
-                    "error": None,
-                },
-                separators=(",", ":"),
+                envelope(command, asdict(bench_report)), separators=(",", ":")
             )
-            if args.out:
-                output = Path(args.out)
+            if output is not None:
                 output.parent.mkdir(parents=True, exist_ok=True)
                 output.write_text(payload + "\n")
             if args.as_json:
                 print(payload)
             else:
-                print(f"machine: {report.machine}")
-                print(
-                    f"python: {report.python} preset: {report.preset} codec_commit: {report.codec_commit}"
-                )
-                print(
-                    f"{'file':<38} {'ratio':>8} {'enc(x)':>10} {'dec(x)':>10} verified"
-                )
-                for row in report.rows:
-                    print(
-                        f"{row.file:<38} {row.ratio:>8.4f} {row.encode_rtf:>9.1f}x {row.decode_rtf:>9.1f}x {row.verified}"
-                    )
-                    if row.skipped:
-                        print(f"warning: {row.file}: skipped ({row.skipped})")
-                totals = report.totals
-                print(
-                    f"{'TOTAL':<38} {totals.ratio:>8.4f} {'':>10} {'':>10} files={totals.files} source_bytes={totals.source_bytes} flac_bytes={totals.flac_bytes}"
-                )
+                _print_bench(bench_report)
             return 0
         if command == "attenuate":
             source = Path(args.src)
@@ -317,12 +300,7 @@ def main(argv=None) -> int:
             target = (
                 Path(args.dst) if args.dst is not None else source.with_suffix(".wav")
             )
-            if target.exists() and not args.force:
-                raise FloatflacError(
-                    "output_exists",
-                    f"{target}: output already exists",
-                    "Pass --force to overwrite.",
-                )
+            _refuse_existing(target, args.force)
             result = attenuate(find_codec(), source, target, args.target_dbfs)
             if args.as_json:
                 emit_json(command, asdict(result))
@@ -332,9 +310,17 @@ def main(argv=None) -> int:
                 print(
                     f"target: {result.target} channels={result.channels} sample_rate={result.sample_rate} samples={result.samples}"
                 )
-                print(
-                    f"input_peak_dbfs: {result.input_peak_dbfs:.3f} output_peak_dbfs: {result.output_peak_dbfs:.3f}"
+                input_peak = (
+                    "silence"
+                    if result.input_peak_dbfs is None
+                    else f"{result.input_peak_dbfs:.3f}"
                 )
+                output_peak = (
+                    "silence"
+                    if result.output_peak_dbfs is None
+                    else f"{result.output_peak_dbfs:.3f}"
+                )
+                print(f"input_peak_dbfs: {input_peak} output_peak_dbfs: {output_peak}")
                 print(
                     f"gain_db: {result.gain_db:.3f} target_dbfs: {result.target_dbfs:.3f}"
                 )

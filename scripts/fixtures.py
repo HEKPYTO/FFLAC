@@ -2,11 +2,8 @@
 import math
 import random
 import struct
-import sys
 import wave
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from floatflac.codec import encode_file, find_codec
 from floatflac.wav import write_float_wav

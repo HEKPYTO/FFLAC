@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from .codec import require_float_stream, run_codec
+from .codec import read_stream_info, require_float_stream, run_codec
 from .errors import FloatflacError
 
 
@@ -45,47 +45,18 @@ def _frame_mode(ana_path: Path) -> str:
 def probe(codec, path: Path) -> ProbeResult:
     flac_path = Path(path)
     require_float_stream(codec, flac_path)
-    proc = run_codec(
-        [
-            codec.metaflac,
-            "--show-sample-type",
-            "--show-bps",
-            "--show-sample-rate",
-            "--show-channels",
-            "--show-channel-mask",
-            str(flac_path),
-        ],
-        "probe_failed",
-    )
-    fields = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
-    if len(fields) < 5:
-        raise FloatflacError(
-            "probe_failed",
-            "metaflac did not return five stream properties.",
-            "Check the FLAC file.",
-        )
-    try:
-        bps = int(fields[1])
-        rate = float(fields[2])
-        channels = int(fields[3])
-        mask = int(fields[4], 0)
-    except ValueError as exc:
-        raise FloatflacError(
-            "probe_failed",
-            f"Unexpected metaflac value: {exc}".replace("\n", " "),
-            "Check the FLAC file.",
-        ) from exc
+    info = read_stream_info(codec, flac_path)
     with TemporaryDirectory() as tmp:
         copy = Path(tmp) / "stream.flac"
         shutil.copyfile(flac_path, copy)
         run_codec([codec.flac, "-a", "-f", str(copy)], "probe_failed")
         mode = _frame_mode(Path(tmp) / "stream.ana")
     return ProbeResult(
-        sample_type=fields[0],
-        bps=bps,
-        sample_rate=rate,
-        channels=channels,
-        channel_mask=mask,
+        sample_type=info.sample_type,
+        bps=info.bps,
+        sample_rate=info.sample_rate,
+        channels=info.channels,
+        channel_mask=info.channel_mask,
         mode=mode,
         mode_is_heuristic=True,
         standard_decoder_compatible=False,

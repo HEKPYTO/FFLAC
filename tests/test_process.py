@@ -156,3 +156,43 @@ def test_integer_flac_rejected(codec, fixtures, tmp_path):
     with pytest.raises(FloatflacError) as exc:
         attenuate(codec, fixtures / "int16-2ch-48k.flac", tmp_path / "out.wav")
     assert exc.value.code == "not_float_stream"
+
+
+def test_silence_peaks_are_null(codec, tmp_path, capsys):
+    source = tmp_path / "silent.wav"
+    write_float_wav(source, [0.0] * 48000, 1, 48000)
+    flac = tmp_path / "silent.flac"
+    encode_file(codec, source, flac)
+    out = tmp_path / "out.wav"
+    code = main(["attenuate", str(flac), "-o", str(out), "--json"])
+    envelope = json.loads(capsys.readouterr().out)
+    assert code == 0
+    data = envelope["data"]
+    assert data["input_peak_dbfs"] is None
+    assert data["output_peak_dbfs"] is None
+    assert data["gain_db"] == 0.0
+    info = read_wav_info(out)
+    raw = b"".join(iter_raw_chunks(out, info.data_offset, info.data_size))
+    assert set(raw) == {0}
+
+
+def test_target_below_floor_is_usage(codec, tmp_path, capsys):
+    _source, flac = make_flac(codec, tmp_path, sine(0.5), name="quiet")
+    out = tmp_path / "out.wav"
+    code = main(
+        [
+            "attenuate",
+            str(flac),
+            "-o",
+            str(out),
+            "--target-dbfs",
+            "-1000",
+            "--json",
+        ]
+    )
+    captured = capsys.readouterr()
+    envelope = json.loads(captured.out)
+    assert code == 2
+    assert envelope["error"]["code"] == "usage"
+    assert "between -200 and 0 dBFS" in envelope["error"]["message"]
+    assert captured.err == ""

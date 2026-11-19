@@ -5,11 +5,10 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
 from floatflac.codec import encode_file, find_codec
 from floatflac.errors import FloatflacError
+
+ROOT = Path(__file__).resolve().parents[1]
 
 FLOAT_GUID = bytes.fromhex("0300000000001000800000aa00389b71")
 
