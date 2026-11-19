@@ -4,16 +4,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from .codec import decode_file, require_float_stream, run_codec
+from .codec import decode_file, read_stream_info, require_float_stream
 from .errors import FloatflacError
 from .wav import iter_raw_chunks, read_wav_info, write_float_wav
 
 
 @dataclass(frozen=True)
 class ProcessResult:
-    input_peak_dbfs: float
+    input_peak_dbfs: float | None
     target_dbfs: float
-    output_peak_dbfs: float
+    output_peak_dbfs: float | None
     gain_db: float
     channels: int
     sample_rate: int
@@ -45,36 +45,24 @@ def _peak(path: Path, offset: int, size: int) -> tuple[float, int]:
     return peak, count
 
 
-def _stream_info(codec, flac: Path) -> tuple[int, int]:
-    proc = run_codec(
-        [codec.metaflac, "--show-sample-rate", "--show-channels", str(flac)],
-        "process_failed",
-    )
-    fields = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
-    if len(fields) < 2:
-        raise FloatflacError(
-            "process_failed",
-            "metaflac did not return sample rate and channels.",
-            "Check the FLAC file.",
-        )
-    return int(fields[1]), int(float(fields[0]))
-
-
 def attenuate(codec, src_flac, dst_wav, target_dbfs: float = -1.0) -> ProcessResult:
-    if not math.isfinite(target_dbfs) or target_dbfs > 0:
+    if not math.isfinite(target_dbfs) or not -200 <= target_dbfs <= 0:
         raise FloatflacError(
             "usage",
-            f"target_dbfs must be finite and <= 0, got {target_dbfs}",
-            "Choose a target at or below 0 dBFS.",
+            "target must be between -200 and 0 dBFS",
+            "Choose a target between -200 and 0 dBFS.",
         )
     flac = Path(src_flac)
     wav = Path(dst_wav)
     require_float_stream(codec, flac, error_code="process_failed")
-    channels, sample_rate = _stream_info(codec, flac)
+    stream = read_stream_info(codec, flac, error_code="process_failed")
+    channels = stream.channels
+    sample_rate = int(stream.sample_rate)
     with TemporaryDirectory() as tmp:
         raw = Path(tmp) / "decoded.f32"
         decode_file(codec, flac, raw, raw=True)
         peak, samples = _peak(raw, 0, raw.stat().st_size)
+        input_peak_dbfs = 20 * math.log10(peak) if peak > 0 else None
         target_linear = 10 ** (target_dbfs / 20)
         gain = 1.0 if peak == 0.0 or peak <= target_linear else target_linear / peak
         unpack = struct.Struct("<f")
@@ -87,10 +75,11 @@ def attenuate(codec, src_flac, dst_wav, target_dbfs: float = -1.0) -> ProcessRes
         write_float_wav(wav, scaled(), channels, sample_rate)
     info = read_wav_info(wav)
     output_peak, _count = _peak(wav, info.data_offset, info.data_size)
+    output_peak_dbfs = 20 * math.log10(output_peak) if output_peak > 0 else None
     return ProcessResult(
-        input_peak_dbfs=20 * math.log10(peak) if peak > 0 else -math.inf,
+        input_peak_dbfs=input_peak_dbfs,
         target_dbfs=target_dbfs,
-        output_peak_dbfs=20 * math.log10(output_peak) if output_peak > 0 else -math.inf,
+        output_peak_dbfs=output_peak_dbfs,
         gain_db=20 * math.log10(gain),
         channels=channels,
         sample_rate=sample_rate,

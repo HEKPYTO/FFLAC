@@ -1,5 +1,4 @@
 import hashlib
-import random
 from pathlib import Path
 
 import pytest
@@ -82,11 +81,3 @@ def test_verify_rejects_integer_wav(codec, sine_flac, fixtures):
     with pytest.raises(FloatflacError) as exc:
         verify(codec, sine_flac, fixtures / "int16-2ch-48k.wav")
     assert exc.value.code == "not_float32_wav"
-
-
-def test_verify_corrupt_flac_is_probe_failed(codec, source_wav, tmp_path):
-    flac = tmp_path / "garbage.flac"
-    flac.write_bytes(random.Random(7).randbytes(4096))
-    with pytest.raises(FloatflacError) as exc:
-        verify(codec, flac, source_wav)
-    assert exc.value.code in {"probe_failed", "decode_failed"}

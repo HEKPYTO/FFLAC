@@ -4,7 +4,7 @@ import pytest
 
 from floatflac.errors import FloatflacError
 from floatflac.probe import probe
-from floatflac.report import COMPATIBILITY_WARNING, compatibility_warning
+from floatflac.report import COMPATIBILITY_WARNING
 
 
 def test_probe_float(codec, sine_flac):
@@ -27,10 +27,8 @@ def test_integer_flac_rejected(codec, fixtures):
 
 
 def test_compatibility_warning():
-    warning = compatibility_warning()
-    assert warning == COMPATIBILITY_WARNING
-    assert "Standard FLAC decoders will refuse it." in warning
-    assert "floatflac" in warning
+    assert "Standard FLAC decoders will refuse it." in COMPATIBILITY_WARNING
+    assert "floatflac" in COMPATIBILITY_WARNING
 
 
 def test_corrupt_flac_is_probe_failed(codec, tmp_path):

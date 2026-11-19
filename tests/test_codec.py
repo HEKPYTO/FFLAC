@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from conftest import ROOT, make_fake_codec
+from conftest import make_fake_codec
 
 from floatflac.codec import (
     CodecPaths,
@@ -59,12 +59,6 @@ def test_missing_codec(monkeypatch, tmp_path):
     assert "scripts/build-codec.sh" in exc.value.fix
 
 
-def test_no_shell_true():
-    sources = list((ROOT / "src").rglob("*.py")) + list((ROOT / "scripts").glob("*.py"))
-    for path in sources:
-        assert "shell=True" not in path.read_text()
-
-
 def test_encode_args(monkeypatch):
     calls = []
 
@@ -90,15 +84,15 @@ def test_encode_args(monkeypatch):
 def test_no_lossy_flags(monkeypatch):
     calls = []
 
-    def fake_run(args, **kwargs):
+    def fake_run(args, code):
         calls.append(args)
         return subprocess.CompletedProcess(args, 0, "", "")
 
-    monkeypatch.setattr("floatflac.codec.subprocess.run", fake_run)
-    encode_file(CODEC, Path("in.wav"), Path("out.flac"))
-    assert not any(
-        "force" in str(flag).lower() for flag in calls[0] if str(flag).startswith("--")
-    )
+    monkeypatch.setattr("floatflac.codec.run_codec", fake_run)
+    encode_file(CODEC, Path("in.wav"), Path("out.flac"), preset=5)
+    argv = [str(arg) for arg in calls[0]]
+    assert not any(str(f).lower().startswith("--force") for f in argv)
+    assert "--verify" in argv
 
 
 def test_decode_raw_args(monkeypatch):

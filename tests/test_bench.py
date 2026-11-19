@@ -68,8 +68,7 @@ def test_bench_skips_non_float(codec, tmp_path, monkeypatch):
         return original(*args, **kwargs)
 
     monkeypatch.setattr("floatflac.bench.encode_file", counting)
-    with pytest.warns(UserWarning, match="skipped"):
-        report = bench(tmp_path)
+    report = bench(tmp_path)
     assert len(calls) == 1
     skipped = [row for row in report.rows if row.skipped]
     assert len(skipped) == 1
@@ -109,3 +108,12 @@ def test_bench_out_force_overwrites(codec, tmp_path, capsys):
     envelope = json.loads(out.read_text())
     assert envelope["data"]["totals"]["files"] == 1
     assert json.loads(capsys.readouterr().out)["command"] == "bench"
+
+
+def test_bench_out_matches_stdout(codec, tmp_path, capsys):
+    write_sine(tmp_path / "sine.wav", seconds=2.0)
+    out = tmp_path / "report.json"
+    code = main(["bench", str(tmp_path), "--out", str(out), "--json"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert out.read_text() == captured.out

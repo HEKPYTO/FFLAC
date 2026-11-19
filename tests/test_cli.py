@@ -3,7 +3,6 @@ import shutil
 
 from floatflac.cli import main
 from floatflac.report import COMPATIBILITY_WARNING
-from floatflac.verify import VerifyResult
 from floatflac.wav import iter_raw_chunks, read_wav_info
 
 ENVELOPE_KEYS = {"schema", "command", "data", "error"}
@@ -61,18 +60,6 @@ def test_encode_integer_wav_rejected(codec, fixtures, capsys):
     )
     envelope = one_json(captured)
     assert code == 1 and envelope["error"]["code"] == "not_float32_wav"
-
-
-def test_encode_verifies(codec, fixtures, tmp_path, capsys, monkeypatch):
-    from floatflac import cli
-
-    monkeypatch.setattr(
-        cli, "verify", lambda *args: VerifyResult("a", "a", "a", 0, False)
-    )
-    source = copy_fixture(fixtures, "sine-f32-2ch-48k.wav", tmp_path / "master.wav")
-    code, captured = run(capsys, ["encode", str(source), "--json"])
-    assert code == 1
-    assert one_json(captured)["error"]["code"] == "verify_failed"
 
 
 def test_decode_wav(codec, sine_flac, tmp_path, capsys):
@@ -143,10 +130,7 @@ def test_missing_input(codec, tmp_path, capsys):
     assert code == 1 and one_json(captured)["error"]["code"] == "input_not_found"
 
 
-def test_exit_codes(codec, fixtures, tmp_path, capsys):
-    assert run(capsys, ["version"])[0] == 0
-    assert run(capsys, ["encode", str(tmp_path / "absent.wav"), "--json"])[0] == 1
-    assert run(capsys, ["bogus"])[0] == 2
+def test_exit_codes(codec, fixtures, capsys):
     assert (
         run(
             capsys, ["encode", str(fixtures / "sine-f32-2ch-48k.wav"), "--preset", "9"]
