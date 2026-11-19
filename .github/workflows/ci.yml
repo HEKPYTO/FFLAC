@@ -37,13 +37,22 @@ jobs:
       - run: uv sync --group dev
       - run: uv run pytest -q
 
-  codec:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: macos-latest
+  codec-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+      - name: Install build tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
       - run: scripts/build-codec.sh
       - run: uv sync --group dev
       - run: uv run python scripts/fixtures.py
       - run: uv run pytest -q
+      - run: uv run floatflac doctor --json
