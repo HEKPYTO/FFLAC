@@ -1,0 +1,32 @@
+# local working records; not part of the public package
+AGENTS.md
+HANDOFF.md
+docs/
+research/
+
+# build and tooling
+.build/
+build/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+*.egg-info/
+.uv/
+
+# generated fixtures
+tests/fixtures/
+
+# agent tooling
+.claude/
+.gemini/
+.trail/
+opencode.json
+GEMINI.md
+
+# os
+.DS_Store
