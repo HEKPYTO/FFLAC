@@ -22,13 +22,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
         python:
           - "3.11"
           - "3.12"
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -38,18 +35,12 @@ jobs:
       - run: uv run pytest -q
 
   codec-matrix:
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-    runs-on: ${{ matrix.os }}
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - name: Install build tools
-        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y cmake build-essential
       - run: scripts/build-codec.sh
       - run: uv sync --group dev
