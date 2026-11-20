@@ -1,0 +1,93 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  python-dist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  codec-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+      - run: scripts/build-codec.sh
+      - run: uv sync --group dev
+      - run: uv run python scripts/fixtures.py
+      - run: uv run pytest -q
+      - run: scripts/package-codec.sh dist
+      - name: Test packaged codec
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d)
+          tar -xzf dist/floatflac-codec-*.tar.gz -C "$tmp"
+          extracted=$(find "$tmp" -mindepth 1 -maxdepth 1 -type d -print -quit)
+          FLOATFLAC_BIN_DIR="$extracted/bin" uv run pytest tests/test_matrix.py tests/test_compat.py -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codec-linux
+          path: |
+            dist/floatflac-codec-*.tar.gz
+            dist/floatflac-codec-*.tar.gz.sha256
+          if-no-files-found: error
+
+  codec-macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: scripts/build-codec.sh
+      - run: uv sync --group dev
+      - run: uv run python scripts/fixtures.py
+      - run: uv run pytest -q
+      - run: scripts/package-codec.sh dist
+      - name: Test packaged codec
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d)
+          tar -xzf dist/floatflac-codec-*.tar.gz -C "$tmp"
+          extracted=$(find "$tmp" -mindepth 1 -maxdepth 1 -type d -print -quit)
+          FLOATFLAC_BIN_DIR="$extracted/bin" uv run pytest tests/test_matrix.py tests/test_compat.py -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codec-macos
+          path: |
+            dist/floatflac-codec-*.tar.gz
+            dist/floatflac-codec-*.tar.gz.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: [python-dist, codec-linux, codec-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Generate SHA256SUMS
+        run: cd dist && sha256sum * > SHA256SUMS
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
