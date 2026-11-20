@@ -4,15 +4,25 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to fill
+        required: true
 
 permissions:
   contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
   python-dist:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
       - uses: astral-sh/setup-uv@v7
       - run: uv build
       - uses: actions/upload-artifact@v4
@@ -27,6 +37,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
       - uses: astral-sh/setup-uv@v7
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y cmake build-essential
@@ -51,9 +63,11 @@ jobs:
           if-no-files-found: error
 
   codec-macos:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
       - uses: astral-sh/setup-uv@v7
       - run: scripts/build-codec.sh
       - run: uv sync --group dev
@@ -89,5 +103,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
-          gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --generate-notes
+          gh release upload "$RELEASE_TAG" dist/* --clobber
