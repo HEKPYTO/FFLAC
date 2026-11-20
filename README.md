@@ -6,6 +6,25 @@ Lossless 32-bit float audio in the FLAC ecosystem.
 single-precision extension to FLAC. It encodes float32 WAV, decodes it back,
 and proves the round trip is bit-exact. Float peaks above 0 dBFS survive.
 
+## Install
+
+One command installs the CLI and a prebuilt codec into `~/.local`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/HEKPYTO/FFLAC/main/scripts/install.sh | sh
+```
+
+Pass `--prefix DIR` to install elsewhere
+(`curl -fsSL .../install.sh | sh -s -- --prefix /opt/floatflac`), or set
+`FLOATFLAC_VERSION` to pin a different release tag. The installer downloads
+the wheel, the codec archive for your platform, and `SHA256SUMS`, then
+verifies both downloads before extracting or installing anything. Add
+`$HOME/.local/bin` (or `<prefix>/bin`) to `PATH`.
+
+Release binaries are unsigned; macOS binaries are not notarized, so your OS
+may warn on first run. No Homebrew formula is provided. For a local build,
+see below.
+
 ## Install from source
 
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), CMake, a C
@@ -73,9 +92,11 @@ decode real-time factors, and the verified flag.
 
 ## Limitations
 
+- The Linux codec archive is built on Ubuntu 24.04 x86_64 and needs glibc
+  2.39 or newer. The macOS archive targets Apple silicon.
 - Float32 only. No 64-bit float, Ogg/FLAC, or AIFF.
-- Linux x86_64 is the supported release target. macOS arm64 builds and
-  passes the same tests locally but is not a release target. Windows is
+- Linux x86_64 and macOS arm64 are the supported release targets. Release
+  binaries are unsigned and macOS binaries are not notarized. Windows is
   untested.
 - WavPack produces smaller files on several tiers; this project wins on FLAC
   ecosystem fit, encode speed, and peak preservation.
