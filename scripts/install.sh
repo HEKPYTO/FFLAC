@@ -25,6 +25,7 @@ done
 
 VERSION="${VERSION_TAG#v}"
 BASE_URL="${FLOATFLAC_BASE_URL:-https://github.com/HEKPYTO/FFLAC/releases/download/$VERSION_TAG}"
+AUTH_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
 
 case "$(uname -s):$(uname -m)" in
   Linux:x86_64) PLATFORM=linux-x86_64 ;;
@@ -49,9 +50,28 @@ CODEC="floatflac-codec-$VERSION-$PLATFORM.tar.gz"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 
+download() {
+  if [ -n "$AUTH_TOKEN" ]; then
+    if curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" "$BASE_URL/$1" -o "$TMP/$1" 2>/dev/null; then
+      return
+    fi
+    case "$BASE_URL" in
+      https://github.com/*)
+        ASSET_ID="$(curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" "https://api.github.com/repos/HEKPYTO/FFLAC/releases/tags/$VERSION_TAG" | python3 -c 'import json,sys; print(next(a["id"] for a in json.load(sys.stdin)["assets"] if a["name"] == sys.argv[1]))' "$1")"
+        curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" -H 'Accept: application/octet-stream' "https://api.github.com/repos/HEKPYTO/FFLAC/releases/assets/$ASSET_ID" -o "$TMP/$1"
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  else
+    curl -fsSL "$BASE_URL/$1" -o "$TMP/$1"
+  fi
+}
+
 for file in "$WHEEL" "$CODEC" SHA256SUMS; do
   echo "Downloading $file"
-  curl -fsSL "$BASE_URL/$file" -o "$TMP/$file"
+  download "$file"
 done
 
 for file in "$WHEEL" "$CODEC"; do

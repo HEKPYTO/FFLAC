@@ -20,6 +20,7 @@ Pass `--prefix DIR` to install elsewhere
 the wheel, the codec archive for your platform, and `SHA256SUMS`, then
 verifies both downloads before extracting or installing anything. Add
 `$HOME/.local/bin` (or `<prefix>/bin`) to `PATH`.
+While the repository is private, set `GITHUB_TOKEN` (or `GH_TOKEN`) to a token with repo read access; the same command works unauthenticated once the repository is public.
 
 Release binaries are unsigned; macOS binaries are not notarized, so your OS
 may warn on first run. No Homebrew formula is provided. For a local build,
