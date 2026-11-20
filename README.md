@@ -1,4 +1,4 @@
-# floatflac
+# Floatflac
 
 Lossless 32-bit float audio in the FLAC ecosystem.
 
