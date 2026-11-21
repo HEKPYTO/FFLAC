@@ -51,22 +51,21 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 
 download() {
-  if [ -n "$AUTH_TOKEN" ]; then
-    if curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" "$BASE_URL/$1" -o "$TMP/$1" 2>/dev/null; then
-      return
-    fi
-    case "$BASE_URL" in
-      https://github.com/*)
-        ASSET_ID="$(curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" "https://api.github.com/repos/HEKPYTO/FFLAC/releases/tags/$VERSION_TAG" | python3 -c 'import json,sys; print(next(a["id"] for a in json.load(sys.stdin)["assets"] if a["name"] == sys.argv[1]))' "$1")"
-        curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" -H 'Accept: application/octet-stream' "https://api.github.com/repos/HEKPYTO/FFLAC/releases/assets/$ASSET_ID" -o "$TMP/$1"
-        ;;
-      *)
-        return 1
-        ;;
-    esac
+  if curl -fsSL "$BASE_URL/$1" -o "$TMP/$1"; then
+    return 0
   else
-    curl -fsSL "$BASE_URL/$1" -o "$TMP/$1"
+    status=$?
   fi
+  [ -n "$AUTH_TOKEN" ] || return "$status"
+  case "$BASE_URL" in
+    https://github.com/*)
+      ASSET_ID="$(curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" "https://api.github.com/repos/HEKPYTO/FFLAC/releases/tags/$VERSION_TAG" | python3 -c 'import json,sys; print(next(a["id"] for a in json.load(sys.stdin)["assets"] if a["name"] == sys.argv[1]))' "$1")"
+      curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" -H 'Accept: application/octet-stream' "https://api.github.com/repos/HEKPYTO/FFLAC/releases/assets/$ASSET_ID" -o "$TMP/$1"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 for file in "$WHEEL" "$CODEC" SHA256SUMS; do
