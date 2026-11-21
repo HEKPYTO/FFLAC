@@ -1,86 +1,84 @@
 # Floatflac
 
-Lossless 32-bit float audio in the FLAC ecosystem.
+Lossless 32-bit float audio in FLAC. The CLI wraps a float-enabled reference
+codec: it encodes float32 WAV, decodes it back, and hashes the raw samples to
+prove the round trip. Peaks above 0 dBFS survive.
 
-`floatflac` wraps the reference implementation of a native IEEE 754
-single-precision extension to FLAC. It encodes float32 WAV, decodes it back,
-and proves the round trip is bit-exact. Float peaks above 0 dBFS survive.
+## Build from source
 
-## Install
-
-One command installs the CLI and a prebuilt codec into `~/.local`:
+You need Python 3.11+, uv, CMake, a C compiler, and git.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/HEKPYTO/FFLAC/main/scripts/install.sh | sh
-```
-
-Pass `--prefix DIR` to install elsewhere
-(`curl -fsSL .../install.sh | sh -s -- --prefix /opt/floatflac`), or set
-`FLOATFLAC_VERSION` to pin a different release tag. The installer downloads
-the wheel, the codec archive for your platform, and `SHA256SUMS`, then
-verifies both downloads before extracting or installing anything. Add
-`$HOME/.local/bin` (or `<prefix>/bin`) to `PATH`.
-While the repository is private, set `GITHUB_TOKEN` (or `GH_TOKEN`) to a token with repo read access; the same command works unauthenticated once the repository is public.
-
-Release binaries are unsigned; macOS binaries are not notarized, so your OS
-may warn on first run. No Homebrew formula is provided. For a local build,
-see below.
-
-## Install from source
-
-Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), CMake, a C
-compiler, and git for the codec build.
-
-```sh
+git clone https://github.com/HEKPYTO/FFLAC.git
+cd FFLAC
 scripts/build-codec.sh
-uv sync
-uv run floatflac version
+uv sync --group dev
 uv run floatflac doctor
 ```
 
-`build-codec.sh` clones the pinned codec commit into `.build/flac-float/` and
-compiles `flac` and `metaflac` with float sample coding enabled. To use an
-existing checkout, set `FLOATFLAC_SOURCE_DIR`; the checkout must be at the
-pinned commit. To use prebuilt binaries, set `FLOATFLAC_BIN_DIR` to a
-directory containing both `flac` and `metaflac`.
+`build-codec.sh` clones a pinned codec source tree into `.build/flac-float`,
+builds `flac` and `metaflac`, and checks that both support float samples.
+No token or GitHub credentials are needed. Cloning this repository and fetching
+the pinned codec source use the network; the test suite never does.
 
-Build a wheel with `uv build` and install `dist/*.whl`. The wheel contains the
-Python CLI only; the codec binaries are separate.
+To run the CMake configure step yourself, from the codec source tree:
+
+```sh
+cmake -S . -B build \
+  -DENABLE_EXPERIMENTAL_FLOAT_SAMPLE_CODING=ON \
+  -DWITH_OGG=OFF \
+  -DBUILD_TESTING=ON \
+  -DBUILD_DOCS=OFF \
+  -DINSTALL_MANPAGES=OFF \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target flacapp metaflac --parallel 4
+```
+
+The CLI looks in `.build/flac-float/build/`, then `PATH`. If your binaries live
+elsewhere, point `FLOATFLAC_BIN_DIR` at the directory containing both.
+`uv build` produces a wheel with the Python CLI only; the codec stays separate.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `floatflac encode SRC.wav [-o DST.flac]` | Validate float32 WAV, encode, verify bit-exactness |
-| `floatflac decode SRC.flac [-o DST.wav]` | Decode to float32 WAV; `--raw` writes f32le |
-| `floatflac verify SRC.flac --source SRC.wav` | Compare decoded samples to the source, fail at the first difference |
-| `floatflac probe SRC.flac` | Sample type, channels, rate, frame mode, compatibility |
-| `floatflac bench DIR` | Ratio, encode/decode real-time factor, bit-exactness |
-| `floatflac attenuate SRC.flac [-o DST.wav]` | Lower peaks to a target dBFS |
-| `floatflac doctor` | Check the codec, its commit, and float support |
-| `floatflac version` | Print the version |
+| `encode SRC.wav [-o DST.flac] [--preset 0..8]` | Validate float32 WAV, encode, decode, and compare every sample byte. |
+| `decode SRC.flac [-o DST.wav] [--raw]` | Write float32 WAV, or raw f32le with `--raw`. |
+| `probe SRC.flac` | Show sample type, bit depth, channels, rate, frame mode, and compatibility. |
+| `verify SRC.flac --source SRC.wav` | Re-decode and hash samples against the source; fail at the first difference. |
+| `bench DIR [--out REPORT.json] [--preset 0..8]` | Encode float32 WAVs under DIR; report ratio, real-time factors, and verification. |
+| `doctor` | Check codec paths, commit, and float support. |
+| `attenuate SRC.flac [-o DST.wav] [--target-dbfs DBFS] [--force]` | Lower peaks to the target dBFS (default -1.0) in a float32 WAV. Processing, not recovery of clipped audio. |
+| `version` | Print the package version. |
 
-Defaults: preset 5; `encode` writes `SRC.flac`; `decode` writes `SRC.wav` or
-`SRC.f32`; `attenuate` writes `SRC.wav`. Existing outputs require `--force`.
-Every command accepts `--json` and prints one `floatflac/v1` envelope.
+Prefix each with `uv run floatflac` (or `floatflac` when it is on `PATH`).
+Every command also takes `--json` and prints one `floatflac/v1` envelope.
+Preset defaults to 5; `encode` writes `SRC.flac`; `decode` writes `SRC.wav` or
+`SRC.f32` with `--raw`. Existing outputs need `--force`.
 
-`attenuate` is processing. It does not recover audio that was already clipped
-in an integer source.
+## Verified round trip
 
-## Compatibility
+Make a deterministic test WAV and prove the round trip:
 
-This is **not RFC 9639 FLAC**. The stream uses reserved legacy fields to
-signal incompatibility, so a standard `flac` decoder or ffmpeg refuses it
-instead of playing noise. A `floatflac` build is required to decode. The
-command prints this warning on `encode` and `probe`.
+```sh
+uv run python scripts/fixtures.py
+uv run floatflac encode tests/fixtures/sine-f32-2ch-48k.wav -o /tmp/roundtrip.flac
+uv run floatflac verify /tmp/roundtrip.flac --source tests/fixtures/sine-f32-2ch-48k.wav
+```
 
-## Verification
+The verify step printed this on one build:
 
-`encode` verifies by default: it decodes the new stream to raw f32le and
-compares every byte with the source WAV samples. On success it reports the
-SHA-256 of the source samples, the decoded samples, and the FLAC file. A
-mismatch fails with the first differing offset. `verify` performs the same
-check without writing a new stream.
+```text
+source: tests/fixtures/sine-f32-2ch-48k.wav (768044 bytes) sha256=dce5432eee0fa1ce47e20812ec48cf4263b386b5667887387f505315f4b8a62d
+flac: /tmp/roundtrip.flac (276513 bytes) sha256=6c041773f978e35ecf7beb2a9d5978861bf0ac3542dfe599715d14f24a0f75a4
+decoded: 768000 bytes sha256=dce5432eee0fa1ce47e20812ec48cf4263b386b5667887387f505315f4b8a62d
+verified: True
+```
+
+`source_sha256` and `decoded_sha256` hash raw float bytes, the WAV data chunk
+and the decoded f32le stream, not the WAV header. Equal hashes plus
+`verified: True` are the bit-exact proof. `flac_sha256` pins the encoded file.
+Hash values depend on the input; equality does not.
 
 ## Benchmark
 
@@ -88,27 +86,24 @@ check without writing a new stream.
 uv run floatflac bench tests/fixtures --out report.json
 ```
 
-The report records machine, codec commit, preset, per-file ratio, encode and
-decode real-time factors, and the verified flag.
+The report has per-file size ratio, encode and decode real-time factors, and a
+`verified` flag, plus totals. Files that are not float32 WAV are skipped with a
+reason. The benchmark does not run other codecs.
 
-## Limitations
+WavPack often produces smaller files. If size alone decides, use WavPack.
+This project's case is FLAC ecosystem fit and keeping peaks above 0 dBFS as
+floats instead of clipping them. The bench report here measures this codec's
+speed and ratios; it does not benchmark WavPack.
 
-- The Linux codec archive is built on Ubuntu 24.04 x86_64 and needs glibc
-  2.39 or newer. The macOS archive targets Apple silicon.
-- Float32 only. No 64-bit float, Ogg/FLAC, or AIFF.
-- Linux x86_64 and macOS arm64 are the supported release targets. Release
-  binaries are unsigned and macOS binaries are not notarized. Windows is
-  untested.
-- WavPack produces smaller files on several tiers; this project wins on FLAC
-  ecosystem fit, encode speed, and peak preservation.
-- Integer delivery formats are out of scope. Use a separate converter after
-  attenuation.
+## Compatibility
+
+These streams are not RFC 9639 FLAC. They use reserved legacy fields to mark
+the float payload, so a stock `flac`, ffmpeg, or other RFC-only decoder refuses
+the file instead of playing noise. Decode with a float-enabled build. `encode`
+and `probe` print that warning.
 
 ## Licence
 
-The floatflac Python package is licensed under the Apache License, Version
-2.0; see `LICENSE`. The `flac` and `metaflac` binaries built by
-`scripts/build-codec.sh` are GPL-2.0-or-later, and libFLAC is BSD-3-Clause;
-see `NOTICE`. The build script fetches the pinned source, so this source
-release does not distribute those binaries. The wrapper and the binaries are
-separate works; no combined-work licence is asserted.
+The Python package is Apache-2.0 (`LICENSE`). The `flac` and `metaflac`
+binaries built from the pinned source are GPL-2.0-or-later, and libFLAC is
+BSD-3-Clause (`NOTICE`). The wrapper and the codec are separate works.
