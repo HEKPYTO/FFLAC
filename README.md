@@ -1,6 +1,11 @@
-# Floatflac
+# FLOATFLAC
 
-Floatflac puts 32-bit float audio in FLAC. The Python CLI wraps a float-enabled
+[![CI](https://github.com/HEKPYTO/FLOATFLAC/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/HEKPYTO/FLOATFLAC/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/HEKPYTO/FLOATFLAC)](https://github.com/HEKPYTO/FLOATFLAC/releases)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![Licence](https://img.shields.io/badge/licence-Apache--2.0-blue)](#licence)
+
+FLOATFLAC puts 32-bit float audio in FLAC. The Python CLI wraps a float-enabled
 reference codec: it encodes float32 WAV, decodes it, and hashes the raw samples
 to prove a bit-exact round trip. Peaks above 0 dBFS stay as floats instead of
 clipping. This is an experimental extension, not an RFC 9639 stream. It claims
@@ -13,8 +18,8 @@ clones a pinned source tree over the network; the test suite never does. Tested
 on macOS arm64 and Linux x86_64; Windows is untested.
 
 ```sh
-git clone https://github.com/HEKPYTO/FFLAC.git
-cd FFLAC
+git clone https://github.com/HEKPYTO/FLOATFLAC.git
+cd FLOATFLAC
 scripts/build-codec.sh
 uv sync --group dev
 uv run floatflac doctor
@@ -42,7 +47,7 @@ The public install script fetches a release wheel and codec archive without a
 token, verifies both against `SHA256SUMS`, and installs under a prefix:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/HEKPYTO/FFLAC/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/HEKPYTO/FLOATFLAC/main/scripts/install.sh | sh
 ```
 
 It installs to `$FLOATFLAC_PREFIX` (default `$HOME/.local`) and writes a launcher
@@ -51,7 +56,7 @@ directory to `PATH`. To choose a version or prefix, save the script and pass its
 flags:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/HEKPYTO/FFLAC/main/scripts/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/HEKPYTO/FLOATFLAC/main/scripts/install.sh -o install.sh
 sh install.sh --version v0.2.0 --prefix /opt/floatflac
 export PATH="/opt/floatflac/bin:$PATH"
 ```
@@ -80,7 +85,7 @@ faster). Timings vary by machine. The int16 case is skipped (not float32).
 | Total (8 files) | 0.4602 | | | yes |
 
 WavPack often produces smaller files; if size alone decides, use WavPack.
-Floatflac's case is FLAC ecosystem fit and keeping peaks above 0 dBFS as floats.
+FLOATFLAC's case is FLAC ecosystem fit and keeping peaks above 0 dBFS as floats.
 This bench does not run WavPack or any other codec.
 
 ## Commands

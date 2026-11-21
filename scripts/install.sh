@@ -24,7 +24,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 VERSION="${VERSION_TAG#v}"
-BASE_URL="${FLOATFLAC_BASE_URL:-https://github.com/HEKPYTO/FFLAC/releases/download/$VERSION_TAG}"
+BASE_URL="${FLOATFLAC_BASE_URL:-https://github.com/HEKPYTO/FLOATFLAC/releases/download/$VERSION_TAG}"
 AUTH_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
 
 case "$(uname -s):$(uname -m)" in
@@ -59,8 +59,8 @@ download() {
   [ -n "$AUTH_TOKEN" ] || return "$status"
   case "$BASE_URL" in
     https://github.com/*)
-      ASSET_ID="$(curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" "https://api.github.com/repos/HEKPYTO/FFLAC/releases/tags/$VERSION_TAG" | python3 -c 'import json,sys; print(next(a["id"] for a in json.load(sys.stdin)["assets"] if a["name"] == sys.argv[1]))' "$1")"
-      curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" -H 'Accept: application/octet-stream' "https://api.github.com/repos/HEKPYTO/FFLAC/releases/assets/$ASSET_ID" -o "$TMP/$1"
+      ASSET_ID="$(curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" "https://api.github.com/repos/HEKPYTO/FLOATFLAC/releases/tags/$VERSION_TAG" | python3 -c 'import json,sys; print(next(a["id"] for a in json.load(sys.stdin)["assets"] if a["name"] == sys.argv[1]))' "$1")"
+      curl -fsSL -H "Authorization: Bearer $AUTH_TOKEN" -H 'Accept: application/octet-stream' "https://api.github.com/repos/HEKPYTO/FLOATFLAC/releases/assets/$ASSET_ID" -o "$TMP/$1"
       ;;
     *)
       return 1
