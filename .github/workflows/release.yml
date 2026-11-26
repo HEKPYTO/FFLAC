@@ -25,7 +25,7 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref_name }}
       - uses: astral-sh/setup-uv@v7
       - run: uv build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: python-dist
           path: |
@@ -54,7 +54,7 @@ jobs:
           tar -xzf dist/floatflac-codec-*.tar.gz -C "$tmp"
           extracted=$(find "$tmp" -mindepth 1 -maxdepth 1 -type d -print -quit)
           FLOATFLAC_BIN_DIR="$extracted/bin" uv run pytest tests/test_matrix.py tests/test_compat.py -q
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: codec-linux
           path: |
@@ -81,7 +81,7 @@ jobs:
           tar -xzf dist/floatflac-codec-*.tar.gz -C "$tmp"
           extracted=$(find "$tmp" -mindepth 1 -maxdepth 1 -type d -print -quit)
           FLOATFLAC_BIN_DIR="$extracted/bin" uv run pytest tests/test_matrix.py tests/test_compat.py -q
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: codec-macos
           path: |
